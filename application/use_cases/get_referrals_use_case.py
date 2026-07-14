@@ -28,7 +28,7 @@ class GetReferralsUseCase:
         referral_link = f"https://t.me/{bot_username}?start={user.referral_code}"
         
         # Get threshold setting
-        vip_threshold = await self.settings_repository.get_setting_int("VIP_UNLOCK_THRESHOLD", 100)
+        vip_threshold = await self.settings_repository.get_setting_int("VIP_UNLOCK_THRESHOLD", 5)
         
         remaining = coins_remaining_for_vip(user.total_coins, vip_threshold)
         

@@ -53,7 +53,7 @@ class ProcessReferralUseCase:
 
         # 4. Fetch settings
         coins_per_referral = await self.settings_repo.get_setting_int("COINS_PER_REFERRAL", 5)
-        vip_threshold = await self.settings_repo.get_setting_int("VIP_UNLOCK_THRESHOLD", 100)
+        vip_threshold = await self.settings_repo.get_setting_int("VIP_UNLOCK_THRESHOLD", 5)
 
         # 5. Register the new user with referrer attribution
         # This will create user, setting referred_by_id to referrer.telegram_id

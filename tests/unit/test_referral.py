@@ -43,9 +43,9 @@ class TestProcessReferralUseCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_successful_referral_logic(self):
         # Setup mock entities
-        referrer = User(telegram_id=123, username="referrer_user", referral_code="REF123", total_coins=10, has_vip_access=False)
+        referrer = User(telegram_id=123, username="referrer_user", referral_code="REF123", total_coins=0, has_vip_access=False)
         new_user = User(telegram_id=456, username="new_user", referred_by_id=123, referral_code="REF456")
-        updated_referrer = User(telegram_id=123, username="referrer_user", referral_code="REF123", total_coins=15, has_vip_access=False)
+        updated_referrer = User(telegram_id=123, username="referrer_user", referral_code="REF123", total_coins=4, has_vip_access=False)
 
         self.mock_user_repo.get_by_referral_code = AsyncMock(return_value=referrer)
         self.mock_user_repo.get_by_telegram_id = AsyncMock(side_effect=lambda tid: None if tid == 456 else updated_referrer)
@@ -56,7 +56,7 @@ class TestProcessReferralUseCase(unittest.IsolatedAsyncioTestCase):
         
         self.assertTrue(result["success"])
         self.assertEqual(result["coins_earned"], 5)
-        self.assertEqual(result["total_coins"], 15)
+        self.assertEqual(result["total_coins"], 4)
         self.assertFalse(result["vip_just_unlocked"])
         
         self.mock_coin_repo.add_coins.assert_called_once_with(telegram_id=123, amount=5, reason="referral_bonus")
@@ -95,9 +95,9 @@ class TestProcessReferralUseCase(unittest.IsolatedAsyncioTestCase):
         self.mock_coin_repo.add_coins.assert_not_called()
 
     async def test_vip_unlock_notification_triggered(self):
-        referrer = User(telegram_id=123, username="referrer_user", referral_code="REF123", total_coins=95, has_vip_access=False)
+        referrer = User(telegram_id=123, username="referrer_user", referral_code="REF123", total_coins=0, has_vip_access=False)
         new_user = User(telegram_id=456, username="new_user", referred_by_id=123, referral_code="REF456")
-        updated_referrer = User(telegram_id=123, username="referrer_user", referral_code="REF123", total_coins=100, has_vip_access=True)
+        updated_referrer = User(telegram_id=123, username="referrer_user", referral_code="REF123", total_coins=5, has_vip_access=True)
 
         self.mock_user_repo.get_by_referral_code = AsyncMock(return_value=referrer)
         self.mock_user_repo.get_by_telegram_id = AsyncMock(side_effect=lambda tid: None if tid == 456 else updated_referrer)
