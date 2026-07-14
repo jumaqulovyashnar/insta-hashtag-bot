@@ -34,9 +34,6 @@ router = Router()
 # Temporary storage for hashtag data (keyed by correlation_id)
 _hashtags_cache = defaultdict(dict)
 
-# ──────────────────────────────────────────────
-# /start command
-# ──────────────────────────────────────────────
 
 @router.message(CommandStart())
 async def cmd_start(
@@ -47,7 +44,6 @@ async def cmd_start(
     check_subscription_use_case: CheckSubscriptionUseCase,
     process_referral_use_case: ProcessReferralUseCase,
 ) -> None:
-    # Check if there is a referral payload
     if command.args:
         ref_arg = command.args.strip()
         if ref_arg.startswith("REF"):
