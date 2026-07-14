@@ -4,6 +4,7 @@ from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart, CommandObject, Command
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
+from collections import defaultdict
 
 from infrastructure.instagram.yt_dlp_gateway import (
     INSTAGRAM_URL_PATTERN,
@@ -29,6 +30,9 @@ from .keyboards import (
 logger = logging.getLogger(__name__)
 
 router = Router()
+
+# Temporary storage for hashtag data (keyed by correlation_id)
+_hashtags_cache = defaultdict(dict)
 
 # ──────────────────────────────────────────────
 # /start command
@@ -343,6 +347,31 @@ async def handle_instagram_link(
             else f"✅ <b>Kommentariyadan topildi (caption'da yo'q edi) ({len(result.hashtags)} ta):</b>"
         )
 
+        # Create copy buttons for hashtags and comments
+        raw_tags_str = ' '.join([str(h) for h in result.hashtags])
+        
+        # Store hashtags and comments data in cache
+        _hashtags_cache[correlation_id] = {
+            'hashtags': raw_tags_str,
+            'comments': result.preview_text
+        }
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 Hashtaglarni nusxalash",
+                    callback_data=f"copy_hashtags:{correlation_id}"
+                ),
+                InlineKeyboardButton(
+                    text="📝 Kommentlarni nusxalash",
+                    callback_data=f"copy_comments:{correlation_id}"
+                )
+            ]
+        ])
+
+        option_a_text = ' '.join([f"<code>{str(h)}</code>" for h in result.hashtags])
+        option_b_text = f"<pre><code>{raw_tags_str}</code></pre>"
+
         await processing_msg.edit_text(
             f"{header_text}\n\n"
             f"<b>1️⃣ Alohida nusxalash (bitta bosish):</b>\n"
@@ -350,7 +379,8 @@ async def handle_instagram_link(
             f"<b>2️⃣ Hammasini birdan nusxalash (bitta bosish):</b>\n"
             f"{option_b_text}\n\n"
             f"{preview_block}",
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=keyboard
         )
     else:
         # source == 'none'
@@ -360,6 +390,48 @@ async def handle_instagram_link(
             f"{preview_block}",
             parse_mode="HTML"
         )
+
+
+# ──────────────────────────────────────────────
+# Copy hashtags callback handlers
+# ──────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("copy_hashtags:"))
+async def callback_copy_hashtags(callback: CallbackQuery) -> None:
+    """Send all hashtags in copyable code format"""
+    await callback.answer()
+    correlation_id = callback.data.split(":")[1]
+    
+    if correlation_id in _hashtags_cache:
+        hashtags_text = _hashtags_cache[correlation_id]['hashtags']
+        
+        await callback.message.answer(
+            f"📋 <b>Topilgan hashtaglar (copy qiling):</b>\n\n"
+            f"<code>{hashtags_text}</code>",
+            parse_mode="HTML"
+        )
+        logger.info("[%s] User %d copied hashtags", correlation_id, callback.from_user.id)
+    else:
+        await callback.answer("⚠️ Ma'lumot topilmadi, qaytadan urinib ko'ring.", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("copy_comments:"))
+async def callback_copy_comments(callback: CallbackQuery) -> None:
+    """Send found comments in copyable code format"""
+    await callback.answer()
+    correlation_id = callback.data.split(":")[1]
+    
+    if correlation_id in _hashtags_cache:
+        comments_text = _hashtags_cache[correlation_id]['comments']
+        
+        await callback.message.answer(
+            f"📝 <b>Tahlil qilingan matn (copy qiling):</b>\n\n"
+            f"<code>{comments_text}</code>",
+            parse_mode="HTML"
+        )
+        logger.info("[%s] User %d copied comments", correlation_id, callback.from_user.id)
+    else:
+        await callback.answer("⚠️ Ma'lumot topilmadi, qaytadan urinib ko'ring.", show_alert=True)
 
 
 # ──────────────────────────────────────────────
