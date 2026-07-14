@@ -76,11 +76,18 @@ class ProcessReferralUseCase:
             # Fallback if somehow not found
             return {"success": True, "referrer_id": referrer.telegram_id, "coins_earned": coins_per_referral, "vip_just_unlocked": False}
 
+        # Log coin addition and VIP unlock check
+        new_total = updated_referrer.total_coins
+        is_unlocked = has_unlocked_vip(new_total, vip_threshold)
+        logger.info(
+            f"user={referrer.telegram_id} coins={new_total} threshold={vip_threshold} unlocked={is_unlocked}"
+        )
+
         # 8. Check VIP eligibility
         vip_just_unlocked = False
         was_vip_before = referrer.has_vip_access
         
-        if not was_vip_before and has_unlocked_vip(updated_referrer.total_coins, vip_threshold):
+        if not was_vip_before and is_unlocked:
             logger.info("User %d has reached VIP threshold. Granting access...", referrer.telegram_id)
             await self.user_repo.grant_vip_access(referrer.telegram_id)
             
@@ -95,13 +102,15 @@ class ProcessReferralUseCase:
             else:
                 logger.error("No active VIP invite link configured in settings.")
 
-        # 9. Notify referrer about coins earned
+        # 9. Notify referrer about coins earned (with VIP progress)
         try:
             await self.vip_notifier.notify_new_referral(
                 referrer_telegram_id=referrer.telegram_id,
                 referred_username=new_user_username,
                 coins_earned=coins_per_referral,
-                total_coins=updated_referrer.total_coins
+                total_coins=updated_referrer.total_coins,
+                vip_threshold=vip_threshold,
+                is_vip_unlocked=vip_just_unlocked
             )
         except Exception as e:
             logger.error("Failed to notify referral reward to user %d: %s", referrer.telegram_id, str(e))

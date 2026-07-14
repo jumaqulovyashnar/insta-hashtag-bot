@@ -76,6 +76,11 @@ async def cmd_start(
         user_telegram_id=message.from_user.id
     )
 
+    logger.info(
+        "/start for user %d: is_subscribed=%s, unsubscribed_channels=%s",
+        message.from_user.id, is_subscribed, len(unsubscribed_channels)
+    )
+
     if is_subscribed:
         await message.answer(
             "👋 <b>Xush kelibsiz!</b>\n\n"
@@ -118,6 +123,11 @@ async def callback_check_subscription(
         user_telegram_id=callback.from_user.id
     )
 
+    logger.info(
+        "Subscription check callback for user %d: is_subscribed=%s, unsubscribed=%s",
+        callback.from_user.id, is_subscribed, len(unsubscribed_channels)
+    )
+
     try:
         if is_subscribed:
             # Edit the message text first
@@ -133,6 +143,7 @@ async def callback_check_subscription(
                 "Botdan to'liq foydalanishingiz mumkin. Quyidagi tugmalar orqali boshqarishingiz mumkin 👇",
                 reply_markup=get_main_menu_keyboard()
             )
+            logger.info("Main menu keyboard sent to user %d after subscription confirmation", callback.from_user.id)
         else:
             await callback.message.edit_text(
                 "❌ <b>Siz hali obuna bo'lmagansiz!</b>\n\n"
@@ -140,8 +151,11 @@ async def callback_check_subscription(
                 parse_mode="HTML",
                 reply_markup=get_subscribe_keyboard(unsubscribed_channels),
             )
-    except TelegramBadRequest:
-        pass
+            logger.info("User %d still not subscribed, showing subscription prompt again", callback.from_user.id)
+    except TelegramBadRequest as e:
+        logger.error("TelegramBadRequest in subscription callback for user %d: %s", callback.from_user.id, str(e))
+    except Exception as e:
+        logger.exception("Unexpected error in subscription callback for user %d", callback.from_user.id)
 
 
 # ──────────────────────────────────────────────

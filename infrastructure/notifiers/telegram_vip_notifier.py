@@ -35,12 +35,25 @@ class TelegramVipNotifier(VipNotifier):
         referrer_telegram_id: int, 
         referred_username: str | None, 
         coins_earned: int, 
-        total_coins: int
+        total_coins: int,
+        vip_threshold: int = 5,
+        is_vip_unlocked: bool = False
     ) -> None:
         """
         Notify the referrer that someone joined via their link and they earned coins.
+        Includes VIP progress information.
         """
         username_str = f" (@{referred_username})" if referred_username else ""
+        
+        # Calculate remaining coins needed for VIP
+        coins_remaining = max(0, vip_threshold - total_coins)
+        
+        # Build progress message
+        if is_vip_unlocked:
+            vip_status = "🔓 <b>VIP kanal ochilgan!</b>"
+        else:
+            vip_status = f"🔓 <b>VIP kanal uchun yana {coins_remaining} tanga kerak</b> ({total_coins}/{vip_threshold})"
+        
         try:
             await self.bot.send_message(
                 chat_id=referrer_telegram_id,
@@ -48,7 +61,8 @@ class TelegramVipNotifier(VipNotifier):
                     f"🎉 <b>Yangi taklif!</b>\n"
                     f"Sizning havolangiz orqali yangi do'stingiz{username_str} botga qo'shildi!\n\n"
                     f"🪙 <b>+{coins_earned} tanga</b> balansingizga qo'shildi.\n"
-                    f"💰 <b>Jami:</b> {total_coins} tanga."
+                    f"💰 <b>Jami:</b> {total_coins} tanga.\n\n"
+                    f"{vip_status}"
                 ),
                 parse_mode="HTML"
             )
