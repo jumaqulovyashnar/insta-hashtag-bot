@@ -28,12 +28,16 @@ from presentation.bot.handlers import router
 # Concrete Adapters
 from infrastructure.instagram.yt_dlp_gateway import YtdlpInstagramGateway
 from infrastructure.persistence.django_user_repository import DjangoUserRepository
+from infrastructure.persistence.django_coin_repository import DjangoCoinRepository
+from infrastructure.persistence.django_settings_repository import DjangoSettingsRepository
+from infrastructure.notifiers.telegram_vip_notifier import TelegramVipNotifier
 
 # Use Cases
 from application.use_cases.register_user_use_case import RegisterUserUseCase
 from application.use_cases.check_subscription_use_case import CheckSubscriptionUseCase
 from application.use_cases.extract_hashtags_use_case import ExtractHashtagsUseCase
 from application.use_cases.get_referrals_use_case import GetReferralsUseCase
+from application.use_cases.process_referral_use_case import ProcessReferralUseCase
 
 # Configure logging
 logging.basicConfig(
@@ -66,22 +70,33 @@ async def main() -> None:
     # Instantiate adapters
     instagram_gateway = YtdlpInstagramGateway()
     user_repository = DjangoUserRepository()
+    coin_repository = DjangoCoinRepository()
+    settings_repository = DjangoSettingsRepository()
+
+    # aiogram setups
+    bot = Bot(token=BOT_TOKEN)
+    dp = Dispatcher()
+
+    vip_notifier = TelegramVipNotifier(bot)
 
     # Instantiate use cases
     register_user_use_case = RegisterUserUseCase(user_repository)
     check_subscription_use_case = CheckSubscriptionUseCase(user_repository)
     extract_hashtags_use_case = ExtractHashtagsUseCase(instagram_gateway, user_repository)
-    get_referrals_use_case = GetReferralsUseCase(user_repository)
-
-    # aiogram setups
-    bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher()
+    get_referrals_use_case = GetReferralsUseCase(user_repository, settings_repository)
+    process_referral_use_case = ProcessReferralUseCase(
+        user_repo=user_repository,
+        coin_repo=coin_repository,
+        settings_repo=settings_repository,
+        vip_notifier=vip_notifier
+    )
 
     # Inject use cases as context kwargs into aiogram dispatch flow
     dp['register_user_use_case'] = register_user_use_case
     dp['check_subscription_use_case'] = check_subscription_use_case
     dp['extract_hashtags_use_case'] = extract_hashtags_use_case
     dp['get_referrals_use_case'] = get_referrals_use_case
+    dp['process_referral_use_case'] = process_referral_use_case
 
     dp.include_router(router)
 

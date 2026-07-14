@@ -2,7 +2,7 @@ import logging
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.filters import CommandStart, CommandObject
+from aiogram.filters import CommandStart, CommandObject, Command
 from aiogram.types import CallbackQuery, Message
 
 from infrastructure.instagram.yt_dlp_gateway import (
@@ -16,6 +16,7 @@ from application.use_cases.register_user_use_case import RegisterUserUseCase
 from application.use_cases.check_subscription_use_case import CheckSubscriptionUseCase
 from application.use_cases.extract_hashtags_use_case import ExtractHashtagsUseCase
 from application.use_cases.get_referrals_use_case import GetReferralsUseCase
+from application.use_cases.process_referral_use_case import ProcessReferralUseCase
 from .keyboards import (
     get_subscribe_keyboard, 
     get_main_menu_keyboard,
@@ -40,18 +41,34 @@ async def cmd_start(
     command: CommandObject,
     register_user_use_case: RegisterUserUseCase,
     check_subscription_use_case: CheckSubscriptionUseCase,
+    process_referral_use_case: ProcessReferralUseCase,
 ) -> None:
-    # Check if there is a referral ID payload
-    referred_by_id = None
-    if command.args and command.args.isdigit():
-        referred_by_id = int(command.args)
-
-    # Register user via use case
-    await register_user_use_case.execute(
-        telegram_id=message.from_user.id,
-        username=message.from_user.username,
-        referred_by_id=referred_by_id
-    )
+    # Check if there is a referral payload
+    if command.args:
+        ref_arg = command.args.strip()
+        if ref_arg.startswith("REF"):
+            # Execute referral mapping usecase
+            await process_referral_use_case.execute(
+                new_user_telegram_id=message.from_user.id,
+                referral_code=ref_arg,
+                new_user_username=message.from_user.username
+            )
+        else:
+            # Fallback for legacy numerical referral ID
+            referred_by_id = None
+            if ref_arg.isdigit():
+                referred_by_id = int(ref_arg)
+            await register_user_use_case.execute(
+                telegram_id=message.from_user.id,
+                username=message.from_user.username,
+                referred_by_id=referred_by_id
+            )
+    else:
+        # Normal registration without referrer
+        await register_user_use_case.execute(
+            telegram_id=message.from_user.id,
+            username=message.from_user.username
+        )
 
     # Check subscription status
     is_subscribed, unsubscribed_channels = await check_subscription_use_case.execute(
@@ -124,7 +141,7 @@ async def callback_check_subscription(
 # Main Menu Button Handlers
 # ──────────────────────────────────────────────
 
-@router.message(F.text == BTN_SEND_LINK)
+@router.message(lambda msg: msg.text and msg.text.strip() == "🔗 Havola yuborish")
 async def btn_send_link(message: Message) -> None:
     await message.answer(
         "📥 <b>Menga Instagram Reels yoki Post havolasini yuboring.</b>\n\n"
@@ -134,32 +151,56 @@ async def btn_send_link(message: Message) -> None:
     )
 
 
-@router.message(F.text == BTN_REFERRAL)
-async def btn_referral(
+async def handle_referral_info_request(
     message: Message,
     bot: Bot,
-    get_referrals_use_case: GetReferralsUseCase,
+    get_referrals_use_case: GetReferralsUseCase
 ) -> None:
     # Dynamically fetch bot's current username
     me = await bot.get_me()
     
-    # Get referral link and count
+    # Get referral link, count, coins, and VIP remaining balance info
     ref_info = await get_referrals_use_case.execute(
         telegram_id=message.from_user.id,
         bot_username=me.username
     )
+
+    if ref_info.has_vip_access:
+        vip_status = "✅ <b>VIP kanal ochilgan!</b>"
+    else:
+        vip_status = f"🔒 <b>VIP kanal uchun yana:</b> {ref_info.coins_remaining} tanga kerak"
 
     await message.answer(
         "🔗 <b>Taklif Havolasi Tizimi</b>\n\n"
         "Botga do'stlaringizni taklif qiling va ularning so'rovlarini kuzatib boring!\n\n"
         f"🔗 <b>Sizning taklif havolangiz:</b>\n"
         f"<code>{ref_info.referral_link}</code>\n\n"
-        f"📊 <b>Jami taklif qilinganlar:</b> {ref_info.count} ta do'stingiz",
+        f"👥 <b>Taklif etilgan do'stlar:</b> {ref_info.count} ta\n"
+        f"🪙 <b>Jami to'plangan tangalar:</b> {ref_info.total_coins} ta\n\n"
+        f"{vip_status}",
         parse_mode="HTML"
     )
 
 
-@router.message(F.text == BTN_GUIDE)
+@router.message(lambda msg: msg.text and msg.text.strip() == "👥 Taklif havolasi")
+async def btn_referral(
+    message: Message,
+    bot: Bot,
+    get_referrals_use_case: GetReferralsUseCase,
+) -> None:
+    await handle_referral_info_request(message, bot, get_referrals_use_case)
+
+
+@router.message(Command("referral"))
+async def cmd_referral(
+    message: Message,
+    bot: Bot,
+    get_referrals_use_case: GetReferralsUseCase,
+) -> None:
+    await handle_referral_info_request(message, bot, get_referrals_use_case)
+
+
+@router.message(lambda msg: msg.text and msg.text.strip() == "📚 Qo'llanma")
 async def btn_guide(message: Message) -> None:
     await message.answer(
         "📚 <b>Botdan foydalanish bo'yicha yo'riqnoma:</b>\n\n"
@@ -175,7 +216,7 @@ async def btn_guide(message: Message) -> None:
     )
 
 
-@router.message(F.text == BTN_SUPPORT)
+@router.message(lambda msg: msg.text and msg.text.strip() == "☎️ Qo'llab-quvvatlash")
 async def btn_support(message: Message) -> None:
     await message.answer(
         "☎️ <b>Qo'llab-quvvatlash markazi</b>\n\n"

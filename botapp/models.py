@@ -15,6 +15,31 @@ class BotUser(models.Model):
         related_name='referrals',
         help_text="Foydalanuvchini taklif qilgan boshqa foydalanuvchi"
     )
+    referral_code = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        help_text="Foydalanuvchining shaxsiy taklif kodi"
+    )
+    total_referrals = models.PositiveIntegerField(
+        default=0,
+        help_text="Jami taklif qilingan do'stlar soni"
+    )
+    total_coins = models.PositiveIntegerField(
+        default=0,
+        help_text="Foydalanuvchining umumiy tangalari balansi"
+    )
+    has_vip_access = models.BooleanField(
+        default=False,
+        help_text="VIP kanalga kirish ruxsati bor yoki yo'qligi"
+    )
+    vip_unlocked_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="VIP kanal ruxsati ochilgan sana va vaqt"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -24,6 +49,55 @@ class BotUser(models.Model):
 
     def __str__(self):
         return f"@{self.username}" if self.username else f"ID:{self.telegram_id}"
+
+
+class CoinTransaction(models.Model):
+    """Log of coin transactions for auditing."""
+    user = models.ForeignKey(
+        BotUser,
+        on_delete=models.CASCADE,
+        related_name='coin_transactions',
+        help_text="Tanga olgan yoki sarflagan foydalanuvchi"
+    )
+    amount = models.IntegerField(help_text="Qo'shilgan (+) yoki ayirilgan (-) tanga miqdori")
+    reason = models.CharField(max_length=100, help_text="Tanga tranzaksiyasi sababi")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Coin Transaction'
+        verbose_name_plural = 'Coin Transactions'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user} -> {self.amount:+d} ({self.reason})"
+
+
+class VipChannel(models.Model):
+    """VIP Channel invite link details."""
+    channel_id = models.CharField(max_length=255, help_text="VIP Channel Telegram ID")
+    invite_link = models.URLField(help_text="VIP Channel taklif havolasi")
+    is_active = models.BooleanField(default=True, help_text="Ushbu taklif havolasi faolmi?")
+
+    class Meta:
+        verbose_name = 'VIP Channel'
+        verbose_name_plural = 'VIP Channels'
+
+    def __str__(self):
+        return f"VIP Channel ID: {self.channel_id}"
+
+
+class SystemSetting(models.Model):
+    """Database-backed dynamic settings configuration."""
+    key = models.CharField(max_length=255, unique=True, db_index=True)
+    value = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'System Setting'
+        verbose_name_plural = 'System Settings'
+
+    def __str__(self):
+        return f"{self.key} = {self.value}"
 
 
 class MandatoryChannel(models.Model):

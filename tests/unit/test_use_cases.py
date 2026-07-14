@@ -69,13 +69,29 @@ class TestExtractHashtagsUseCase(unittest.IsolatedAsyncioTestCase):
 class TestGetReferralsUseCase(unittest.IsolatedAsyncioTestCase):
     async def test_get_referrals(self):
         from application.use_cases.get_referrals_use_case import GetReferralsUseCase
-        mock_repo = MagicMock(spec=UserRepository)
-        mock_repo.get_referral_count = AsyncMock(return_value=5)
+        from application.interfaces.settings_repository import SettingsRepository
+        from domain.entities.user import User
         
-        use_case = GetReferralsUseCase(mock_repo)
+        mock_repo = MagicMock(spec=UserRepository)
+        mock_user = User(
+            telegram_id=98765, 
+            username="testuser", 
+            referral_code="REF123", 
+            total_referrals=5, 
+            total_coins=25, 
+            has_vip_access=False
+        )
+        mock_repo.get_by_telegram_id = AsyncMock(return_value=mock_user)
+        
+        mock_settings = MagicMock(spec=SettingsRepository)
+        mock_settings.get_setting_int = AsyncMock(return_value=100)
+        
+        use_case = GetReferralsUseCase(mock_repo, mock_settings)
         result = await use_case.execute(telegram_id=98765, bot_username="my_bot")
         
         self.assertEqual(result.count, 5)
-        self.assertEqual(result.referral_link, "https://t.me/my_bot?start=98765")
-        mock_repo.get_referral_count.assert_called_once_with(98765)
+        self.assertEqual(result.referral_link, "https://t.me/my_bot?start=REF123")
+        self.assertEqual(result.total_coins, 25)
+        self.assertFalse(result.has_vip_access)
+        self.assertEqual(result.coins_remaining, 75)
 
