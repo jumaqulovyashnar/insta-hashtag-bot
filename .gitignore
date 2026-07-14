@@ -1,9 +1,19 @@
-# Django
+# Django / Database
 db.sqlite3
 *.log
 
-# Environment variables
+# Environment variables and secrets
 .env
+.env.*
+*.env
+.secrets
+secrets/
+*secret*
+*.pem
+*.key
+*.cert
+credentials.json
+client_secrets.json
 
 # Process locks
 bot.lock
