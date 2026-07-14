@@ -174,7 +174,7 @@ async def handle_referral_info_request(
         "🔗 <b>Taklif Havolasi Tizimi</b>\n\n"
         "Botga do'stlaringizni taklif qiling va ularning so'rovlarini kuzatib boring!\n\n"
         f"🔗 <b>Sizning taklif havolangiz:</b>\n"
-        f"<code>{ref_info.referral_link}</code>\n\n"
+        f"{ref_info.referral_link}\n\n"
         f"👥 <b>Taklif etilgan do'stlar:</b> {ref_info.count} ta\n"
         f"🪙 <b>Jami to'plangan tangalar:</b> {ref_info.total_coins} ta\n\n"
         f"{vip_status}",
