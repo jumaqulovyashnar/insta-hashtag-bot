@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart, CommandObject, Command
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
 from infrastructure.instagram.yt_dlp_gateway import (
     INSTAGRAM_URL_PATTERN,
@@ -86,6 +86,13 @@ async def cmd_start(
             reply_markup=get_main_menu_keyboard(),
         )
     else:
+        # Hide the bottom reply keyboard menu so they cannot access other options
+        try:
+            temp_msg = await message.answer("Tekshirilmoqda...", reply_markup=ReplyKeyboardRemove())
+            await temp_msg.delete()
+        except Exception:
+            pass
+
         await message.answer(
             "👋 <b>Assalomu alaykum!</b>\n\n"
             "Botdan foydalanish uchun avval quyidagi kanalga obuna bo'ling:\n",
@@ -261,6 +268,12 @@ async def handle_instagram_link(
     )
 
     if not is_subscribed:
+        try:
+            temp_msg = await message.answer("Tekshirilmoqda...", reply_markup=ReplyKeyboardRemove())
+            await temp_msg.delete()
+        except Exception:
+            pass
+
         await message.answer(
             "⚠️ <b>Botdan foydalanish uchun kanalga obuna bo'lishingiz kerak!</b>\n\n"
             "Quyidagi kanalga obuna bo'ling:",
