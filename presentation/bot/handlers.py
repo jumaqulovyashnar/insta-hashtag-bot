@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart, CommandObject, Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from infrastructure.instagram.yt_dlp_gateway import (
     INSTAGRAM_URL_PATTERN,
@@ -165,8 +165,14 @@ async def handle_referral_info_request(
         bot_username=me.username
     )
 
+    reply_markup = None
     if ref_info.has_vip_access:
         vip_status = "✅ <b>VIP kanal ochilgan!</b>"
+        invite_link = await get_referrals_use_case.user_repository.get_active_vip_invite_link()
+        if invite_link:
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🎖️ VIP Kanal", url=invite_link)]
+            ])
     else:
         vip_status = f"🔒 <b>VIP kanal uchun yana:</b> {ref_info.coins_remaining} tanga kerak"
 
@@ -178,7 +184,8 @@ async def handle_referral_info_request(
         f"👥 <b>Taklif etilgan do'stlar:</b> {ref_info.count} ta\n"
         f"🪙 <b>Jami to'plangan tangalar:</b> {ref_info.total_coins} ta\n\n"
         f"{vip_status}",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=reply_markup
     )
 
 

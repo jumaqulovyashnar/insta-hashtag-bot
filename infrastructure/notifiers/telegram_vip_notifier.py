@@ -1,5 +1,6 @@
 import logging
 from aiogram import Bot
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from application.interfaces.vip_notifier import VipNotifier
 
 logger = logging.getLogger(__name__)
@@ -13,14 +14,17 @@ class TelegramVipNotifier(VipNotifier):
         Send VIP unlock notification message with the invite link to the user on Telegram.
         """
         try:
+            markup = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🎖️ VIP Kanal", url=invite_link)]
+            ])
             await self.bot.send_message(
                 chat_id=telegram_id,
                 text=(
                     "🎖️ <b>Tabriklaymiz! VIP Kanalga kirish huquqini qo'lga kiritdingiz!</b>\n\n"
-                    "Siz to'plagan tangalar soni VIP darajaga yetdi. Quyidagi havola orqali kanalga qo'shilishingiz mumkin:\n\n"
-                    f"🔗 <b>Taklif havolasi:</b> {invite_link}"
+                    "Siz to'plagan tangalar soni VIP darajaga yetdi. Quyidagi tugma orqali kanalga qo'shilishingiz mumkin:"
                 ),
-                parse_mode="HTML"
+                parse_mode="HTML",
+                reply_markup=markup
             )
             logger.info("Sent VIP unlock invite link to user %d", telegram_id)
         except Exception as e:
