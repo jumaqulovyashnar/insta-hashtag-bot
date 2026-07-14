@@ -67,8 +67,6 @@ async def cmd_start(
             telegram_id=message.from_user.id,
             username=message.from_user.username
         )
-
-    # Check subscription status
     is_subscribed, unsubscribed_channels = await check_subscription_use_case.execute(
         bot=bot,
         user_telegram_id=message.from_user.id
