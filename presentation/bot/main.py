@@ -115,7 +115,6 @@ async def main() -> None:
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
-        # Final safety cleanup for lock release on windows
         if lock.is_locked:
             lock.release()
             logger.info("Bot lock released.")
@@ -124,7 +123,6 @@ if __name__ == '__main__':
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        # Graceful exit on windows CLI interrupt
         if lock.is_locked:
             lock.release()
         sys.exit(0)
