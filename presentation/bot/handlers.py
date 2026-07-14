@@ -87,7 +87,6 @@ async def cmd_start(
             reply_markup=get_main_menu_keyboard(),
         )
     else:
-        # Hide the bottom reply keyboard menu so they cannot access other options
         try:
             temp_msg = await message.answer("Tekshirilmoqda...", reply_markup=ReplyKeyboardRemove())
             await temp_msg.delete()
