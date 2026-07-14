@@ -47,14 +47,12 @@ async def cmd_start(
     if command.args:
         ref_arg = command.args.strip()
         if ref_arg.startswith("REF"):
-            # Execute referral mapping usecase
             await process_referral_use_case.execute(
                 new_user_telegram_id=message.from_user.id,
                 referral_code=ref_arg,
                 new_user_username=message.from_user.username
             )
         else:
-            # Fallback for legacy numerical referral ID
             referred_by_id = None
             if ref_arg.isdigit():
                 referred_by_id = int(ref_arg)
