@@ -48,7 +48,7 @@ Loyiha arxitekturasi **Clean Architecture** qoidalariga moslab qayta yozildi.
 
 ## Testlarni yurgizish
 
-Tizimdagi barcha unit va integration testlarini yurgizish uchun quyidagi buyruqni bering:
+Tizimdagi barcha unit va integration testlarini alohida xavfsiz (test) ma'lumotlar bazasida yurgizish uchun quyidagi buyruqni bering:
 ```bash
-python -m unittest discover -s tests
+python manage.py test
 ```
