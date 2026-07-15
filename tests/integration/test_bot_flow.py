@@ -118,8 +118,8 @@ class TestBotFlowIntegration(TransactionTestCase):
             is_active=True
         )
         MandatoryChannel.objects.create(
-            channel_id="@instagram_chat77",
-            channel_link="https://t.me/instagram_chat77",
+            channel_id="@shox_luxe2",
+            channel_link="https://t.me/shox_luxe2",
             is_active=True
         )
 
