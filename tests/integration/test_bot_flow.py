@@ -110,3 +110,49 @@ class TestBotFlowIntegration(TransactionTestCase):
         self.assertEqual(logs.count(), 1)
         self.assertEqual(logs[0].instagram_url, "https://instagram.com/reel/DasBKDHC_XA")
         self.assertEqual(logs[0].hashtags_found, "motivation")
+
+    def test_subscription_checks_all_active_mandatory_channels(self):
+        MandatoryChannel.objects.create(
+            channel_id="@shox_luxe",
+            channel_link="https://t.me/shox_luxe",
+            is_active=True
+        )
+        MandatoryChannel.objects.create(
+            channel_id="@instagram_chat77",
+            channel_link="https://t.me/instagram_chat77",
+            is_active=True
+        )
+
+        user = self.loop.run_until_complete(
+            self.register_use_case.execute(telegram_id=9999, username="yashnar2")
+        )
+        self.assertFalse(user.is_subscribed)
+
+        mock_bot = MagicMock()
+        mock_chat_member1 = MagicMock(); mock_chat_member1.status = "member"
+        mock_chat_member2 = MagicMock(); mock_chat_member2.status = "left"
+        mock_bot.get_chat_member = AsyncMock(side_effect=[mock_chat_member1, mock_chat_member2])
+
+        is_subbed, unsubbed_channels = self.loop.run_until_complete(
+            self.check_sub_use_case.execute(mock_bot, 9999)
+        )
+
+        self.assertFalse(is_subbed)
+        self.assertEqual(len(unsubbed_channels), 1)
+        self.assertEqual(unsubbed_channels[0]['channel_id'], "@instagram_chat77")
+
+        db_user = BotUser.objects.get(telegram_id=9999)
+        self.assertFalse(db_user.is_subscribed)
+
+        # Simulate the second channel subscription now
+        mock_chat_member2.status = "member"
+        mock_bot.get_chat_member = AsyncMock(side_effect=[mock_chat_member1, mock_chat_member2])
+
+        is_subbed, unsubbed_channels = self.loop.run_until_complete(
+            self.check_sub_use_case.execute(mock_bot, 9999)
+        )
+
+        self.assertTrue(is_subbed)
+        self.assertEqual(len(unsubbed_channels), 0)
+        db_user = BotUser.objects.get(telegram_id=9999)
+        self.assertTrue(db_user.is_subscribed)

@@ -94,38 +94,29 @@ async def cmd_start(
             telegram_id=message.from_user.id,
             username=message.from_user.username
         )
-    is_subscribed, unsubscribed_channels = await check_subscription_use_case.execute(
+
+    is_subscribed, unsubscribed_channels = await enforce_subscription(
+        message=message,
         bot=bot,
-        user_telegram_id=message.from_user.id
+        check_subscription_use_case=check_subscription_use_case,
     )
+
+    if not is_subscribed:
+        return
 
     logger.info(
         "/start for user %d: is_subscribed=%s, unsubscribed_channels=%s",
         message.from_user.id, is_subscribed, len(unsubscribed_channels)
     )
 
-    if is_subscribed:
-        await message.answer(
-            "👋 <b>Xush kelibsiz!</b>\n\n"
-            "Menga Instagram Reels/Post havolasini yuboring, "
-            "men sizga undagi barcha hashtaglarni topib beraman! 🔍\n\n"
-            "📎 Misol: <code>https://www.instagram.com/p/ABC123/</code>",
-            parse_mode="HTML",
-            reply_markup=get_main_menu_keyboard(),
-        )
-    else:
-        try:
-            temp_msg = await message.answer("Tekshirilmoqda...", reply_markup=ReplyKeyboardRemove())
-            await temp_msg.delete()
-        except Exception:
-            pass
-
-        await message.answer(
-            "👋 <b>Assalomu alaykum!</b>\n\n"
-            "Botdan foydalanish uchun avval quyidagi kanalga obuna bo'ling:\n",
-            parse_mode="HTML",
-            reply_markup=get_subscribe_keyboard(unsubscribed_channels),
-        )
+    await message.answer(
+        "👋 <b>Xush kelibsiz!</b>\n\n"
+        "Menga Instagram Reels/Post havolasini yuboring, "
+        "men sizga undagi barcha hashtaglarni topib beraman! 🔍\n\n"
+        "📎 Misol: <code>https://www.instagram.com/p/ABC123/</code>",
+        parse_mode="HTML",
+        reply_markup=get_main_menu_keyboard(),
+    )
 
 
 # ──────────────────────────────────────────────
@@ -265,7 +256,15 @@ async def cmd_referral(
 
 
 @router.message(lambda msg: msg.text and msg.text.strip() == "📚 Qo'llanma")
-async def btn_guide(message: Message) -> None:
+async def btn_guide(
+    message: Message,
+    bot: Bot,
+    check_subscription_use_case: CheckSubscriptionUseCase,
+) -> None:
+    is_subscribed, _ = await enforce_subscription(message, bot, check_subscription_use_case)
+    if not is_subscribed:
+        return
+
     await message.answer(
         "📚 <b>Botdan foydalanish bo'yicha yo'riqnoma:</b>\n\n"
         "1. Instagram ilovasida kerakli post yoki Reels'ni oching.\n"
@@ -281,7 +280,15 @@ async def btn_guide(message: Message) -> None:
 
 
 @router.message(lambda msg: msg.text and msg.text.strip() == "☎️ Qo'llab-quvvatlash")
-async def btn_support(message: Message) -> None:
+async def btn_support(
+    message: Message,
+    bot: Bot,
+    check_subscription_use_case: CheckSubscriptionUseCase,
+) -> None:
+    is_subscribed, _ = await enforce_subscription(message, bot, check_subscription_use_case)
+    if not is_subscribed:
+        return
+
     await message.answer(
         "☎️ <b>Qo'llab-quvvatlash markazi</b>\n\n"
         "Agar botda xatolik yuz bersa yoki takliflaringiz bo'lsa, "
@@ -311,25 +318,12 @@ async def handle_instagram_link(
         correlation_id, message.from_user.id, message.from_user.username, message.text
     )
 
-    # Re-check subscription every time
-    is_subscribed, unsubscribed_channels = await check_subscription_use_case.execute(
+    is_subscribed, _ = await enforce_subscription(
+        message=message,
         bot=bot,
-        user_telegram_id=message.from_user.id
+        check_subscription_use_case=check_subscription_use_case,
     )
-
     if not is_subscribed:
-        try:
-            temp_msg = await message.answer("Tekshirilmoqda...", reply_markup=ReplyKeyboardRemove())
-            await temp_msg.delete()
-        except Exception:
-            pass
-
-        await message.answer(
-            "⚠️ <b>Botdan foydalanish uchun kanalga obuna bo'lishingiz kerak!</b>\n\n"
-            "Quyidagi kanalga obuna bo'ling:",
-            parse_mode="HTML",
-            reply_markup=get_subscribe_keyboard(unsubscribed_channels),
-        )
         return
 
     processing_msg = await message.answer("⏳ Hashtaglar izlanmoqda...")
@@ -489,7 +483,15 @@ async def callback_copy_comments(
 # ──────────────────────────────────────────────
 
 @router.message()
-async def handle_unknown(message: Message) -> None:
+async def handle_unknown(
+    message: Message,
+    bot: Bot,
+    check_subscription_use_case: CheckSubscriptionUseCase,
+) -> None:
+    is_subscribed, _ = await enforce_subscription(message, bot, check_subscription_use_case)
+    if not is_subscribed:
+        return
+
     await message.answer(
         "🤔 Men faqat Instagram post/reel havolalarini qabul qilaman.\n\n"
         "📎 Misol: <code>https://www.instagram.com/p/ABC123/</code>\n\n"
