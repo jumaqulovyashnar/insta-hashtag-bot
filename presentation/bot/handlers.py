@@ -35,6 +35,33 @@ router = Router()
 _hashtags_cache = defaultdict(dict)
 
 
+async def enforce_subscription(
+    message: Message,
+    bot: Bot,
+    check_subscription_use_case: CheckSubscriptionUseCase,
+) -> tuple[bool, list[dict]]:
+    is_subscribed, unsubscribed_channels = await check_subscription_use_case.execute(
+        bot=bot,
+        user_telegram_id=message.from_user.id
+    )
+
+    if not is_subscribed:
+        try:
+            temp_msg = await message.answer("Tekshirilmoqda...", reply_markup=ReplyKeyboardRemove())
+            await temp_msg.delete()
+        except Exception:
+            pass
+
+        await message.answer(
+            "⚠️ <b>Botdan foydalanish uchun kanalga obuna bo'lishingiz kerak!</b>\n\n"
+            "Quyidagi kanalga obuna bo'ling:",
+            parse_mode="HTML",
+            reply_markup=get_subscribe_keyboard(unsubscribed_channels),
+        )
+
+    return is_subscribed, unsubscribed_channels
+
+
 @router.message(CommandStart())
 async def cmd_start(
     message: Message, 
@@ -158,7 +185,15 @@ async def callback_check_subscription(
 # ──────────────────────────────────────────────
 
 @router.message(lambda msg: msg.text and msg.text.strip() == "🔗 Havola yuborish")
-async def btn_send_link(message: Message) -> None:
+async def btn_send_link(
+    message: Message,
+    bot: Bot,
+    check_subscription_use_case: CheckSubscriptionUseCase,
+) -> None:
+    is_subscribed, _ = await enforce_subscription(message, bot, check_subscription_use_case)
+    if not is_subscribed:
+        return
+
     await message.answer(
         "📥 <b>Menga Instagram Reels yoki Post havolasini yuboring.</b>\n\n"
         "Matnda havola (link) borligiga ishonch hosil qiling.\n"
@@ -170,8 +205,12 @@ async def btn_send_link(message: Message) -> None:
 async def handle_referral_info_request(
     message: Message,
     bot: Bot,
-    get_referrals_use_case: GetReferralsUseCase
+    get_referrals_use_case: GetReferralsUseCase,
+    check_subscription_use_case: CheckSubscriptionUseCase,
 ) -> None:
+    is_subscribed, _ = await enforce_subscription(message, bot, check_subscription_use_case)
+    if not is_subscribed:
+        return
     # Dynamically fetch bot's current username
     me = await bot.get_me()
     
@@ -210,8 +249,9 @@ async def btn_referral(
     message: Message,
     bot: Bot,
     get_referrals_use_case: GetReferralsUseCase,
+    check_subscription_use_case: CheckSubscriptionUseCase,
 ) -> None:
-    await handle_referral_info_request(message, bot, get_referrals_use_case)
+    await handle_referral_info_request(message, bot, get_referrals_use_case, check_subscription_use_case)
 
 
 @router.message(Command("referral"))
@@ -219,8 +259,9 @@ async def cmd_referral(
     message: Message,
     bot: Bot,
     get_referrals_use_case: GetReferralsUseCase,
+    check_subscription_use_case: CheckSubscriptionUseCase,
 ) -> None:
-    await handle_referral_info_request(message, bot, get_referrals_use_case)
+    await handle_referral_info_request(message, bot, get_referrals_use_case, check_subscription_use_case)
 
 
 @router.message(lambda msg: msg.text and msg.text.strip() == "📚 Qo'llanma")
@@ -388,9 +429,18 @@ async def handle_instagram_link(
 # ──────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("copy_hashtags:"))
-async def callback_copy_hashtags(callback: CallbackQuery) -> None:
+async def callback_copy_hashtags(
+    callback: CallbackQuery,
+    bot: Bot,
+    check_subscription_use_case: CheckSubscriptionUseCase,
+) -> None:
     """Send all hashtags in copyable code format"""
     await callback.answer()
+
+    is_subscribed, _ = await enforce_subscription(callback.message, bot, check_subscription_use_case)
+    if not is_subscribed:
+        return
+
     correlation_id = callback.data.split(":")[1]
     
     if correlation_id in _hashtags_cache:
@@ -407,9 +457,18 @@ async def callback_copy_hashtags(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data.startswith("copy_comments:"))
-async def callback_copy_comments(callback: CallbackQuery) -> None:
+async def callback_copy_comments(
+    callback: CallbackQuery,
+    bot: Bot,
+    check_subscription_use_case: CheckSubscriptionUseCase,
+) -> None:
     """Send found comments in copyable code format"""
     await callback.answer()
+
+    is_subscribed, _ = await enforce_subscription(callback.message, bot, check_subscription_use_case)
+    if not is_subscribed:
+        return
+
     correlation_id = callback.data.split(":")[1]
     
     if correlation_id in _hashtags_cache:
